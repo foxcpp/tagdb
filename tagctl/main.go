@@ -8,8 +8,7 @@ import (
 	"github.com/foxcpp/tagdb"
 )
 
-var (
-	generalUsageMsg = `Usage: tagctl <subcommand> [options...]
+var generalUsageMsg = `Usage: tagctl <subcommand> [options...]
 
 Control and query tags associated with files.
 
@@ -21,56 +20,20 @@ Subcommands:
   query		List files by tag
   add   	Add tag(s) to file(s)
   rem   	Remove tag(s) from file(s)
+  retag		Rename/merge tag
+  tags		List known tags
+  deltag    Delete tag.
 
 Use 'tagctl subcmd -h' to get more detailed description and usage hints for
 particular subcommand.
 
+Notes:
+
 Database to use can be specified using TAGDB environment variable. Default is
 ~/.tag.db.
+
+All operations are atomic unless otherwise stated.
 `
-
-	queryUsageMsg = `Usage: tagctl query <tag>
-
-List files by tag, one absolute path per line.
-
-Options:
-  -h, --help		Print this message.
-
-Examples:
-  tagctl query work		List all work-related files`
-
-	addUsageMsg = `Usage: tagctl add <files> -t <tag> [-t <tag>] ...
-
-Add all specified tags to files. Operation is atomic, either all or none
-tags added to all files.
-
-Options:
-  -h, --help		Print this message.
-  -t, --tag <tag>	Tag to add; can be used multiple times
-
-Examples:
-  tagctl add agreement.odt report.odt -t work
-	Add 'work' tag to agreement.odt and report.odt files in current
-	directory.
-
-  tagctl add report.odt -t todo
-    Add 'todo' tag to report.odt file in current directory.
-`
-
-	remUsageMsg = `Usage: tagctl rem <files> -t <tag> [-t <tag>] ...
-
-Remove all specified tags from files. Operation is atomic, either all or none
-tags removed from all files. Non-existing files and tags are silently ignored.
-
-Options:
-  -h, --help		Print this message.
-  -t, --tag <tag>	Tag to add; can be used multiple times
-
-Examples:
-  tagctl rem report.odt -t todo
-    Remove 'todo' tag from report.odt file in current directory.
-`
-)
 
 var (
 	ErrHelp = errors.New("help requested")
@@ -110,75 +73,6 @@ func parseFilesTags(args []string) (files []string, tags []string, err error) {
 	return files, tags, nil
 }
 
-func querySubcmd() int {
-	if len(os.Args) != 3 {
-		fmt.Fprintln(os.Stderr, queryUsageMsg)
-		return 1
-	}
-	opts, err := parseQueryFlags(os.Args[2:])
-	if err != nil {
-		if err == ErrHelp {
-			fmt.Fprintln(os.Stderr, queryUsageMsg)
-			return 0
-		} else {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			return 1
-		}
-	}
-
-	if err := query(opts); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return 2
-	}
-	return 0
-}
-
-func addSubcmd() int {
-	if len(os.Args) < 3 {
-		fmt.Fprintln(os.Stderr, addUsageMsg)
-		return 1
-	}
-	opts, err := parseAddFlags(os.Args[2:])
-	if err != nil {
-		if err == ErrHelp {
-			fmt.Fprintln(os.Stderr, addUsageMsg)
-			return 0
-		} else {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			return 1
-		}
-	}
-
-	if err := add(opts); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return 2
-	}
-	return 0
-}
-
-func remSubcmd() int {
-	if len(os.Args) < 3 {
-		fmt.Fprintln(os.Stderr, remUsageMsg)
-		return 1
-	}
-	opts, err := parseRemFlags(os.Args[2:])
-	if err != nil {
-		if err == ErrHelp {
-			fmt.Fprintln(os.Stderr, remUsageMsg)
-			return 0
-		} else {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			return 1
-		}
-	}
-
-	if err := rem(opts); err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
-		return 2
-	}
-	return 0
-}
-
 func main() {
 	var exitCode int
 	defer func() {
@@ -205,6 +99,12 @@ func main() {
 		exitCode = addSubcmd()
 	} else if subCmd == "rem" {
 		exitCode = remSubcmd()
+	} else if subCmd == "retag" {
+		exitCode = retagSubcmd()
+	} else if subCmd == "tags" {
+		exitCode = tagsSubcmd()
+	} else if subCmd == "deltag" {
+		exitCode = deltagSubcmd()
 	} else if subCmd == "help" || subCmd == "-h" || subCmd == "--help" {
 		fmt.Fprintln(os.Stderr, generalUsageMsg)
 	} else {

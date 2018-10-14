@@ -15,7 +15,9 @@ type S struct {
 	addTag    *sql.Stmt
 	remTag    *sql.Stmt
 	forgetTag *sql.Stmt
+	renameTag *sql.Stmt
 	fileLst   *sql.Stmt
+	tagLst    *sql.Stmt
 }
 
 func Open(path string) (s *S, err error) {
@@ -56,7 +58,15 @@ func Open(path string) (s *S, err error) {
 	if err != nil {
 		return nil, err
 	}
+	s.renameTag, err = s.DB.Prepare("UPDATE OR REPLACE map SET tag = $2 WHERE tag = $1")
+	if err != nil {
+		return nil, err
+	}
 	s.fileLst, err = s.DB.Prepare("SELECT path FROM map WHERE tag = $1")
+	if err != nil {
+		return nil, err
+	}
+	s.tagLst, err = s.DB.Prepare("SELECT tag FROM map GROUP BY tag")
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +80,33 @@ func (s *S) Close() {
 
 func (s *S) Begin() (*sql.Tx, error) {
 	return s.DB.Begin()
+}
+
+func (s *S) Tags() (res []string, err error) {
+	rows, err := s.tagLst.Query()
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, err
+		}
+		res = append(res, tag)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (s *S) RenameTag(tx *sql.Tx, oldname, newname string) error {
+	// FIXME: Cryptic error forces us to flip arguments in statement. Further
+	// investigation is required.
+	_, err := tx.Stmt(s.renameTag).Exec(newname, oldname)
+	return err
 }
 
 func (s *S) FileList(tag string) (res []string, err error) {
