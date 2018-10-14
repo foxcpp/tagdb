@@ -5,30 +5,49 @@ import (
 	"os"
 )
 
-var tagsUsageMsg = `Usage: tagctl tags
+var tagsUsageMsg = `Usage: tagctl tags [file]
 
-Print all known tags, one name per line.
+Print tags on file (or all tags if no argument passed).
 
 Options:
   -h, --help		Print this message.
 `
 
-func parseTagsFlags(args []string) (err error) {
-	for _, arg := range args {
-		if arg == "-h" || arg == "--help" {
-			return ErrHelp
-		}
-	}
-	return nil
+type tagsOpts struct {
+	file string
 }
 
-func tags() error {
+func parseTagsFlags(args []string) (*tagsOpts, error) {
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			return nil, ErrHelp
+		}
+	}
+	if len(args) == 1 {
+		canonPath, err := canonicalPath(args[0])
+		if err != nil {
+			return nil, err
+		}
+		return &tagsOpts{canonPath}, nil
+	} else if len(args) == 0 {
+		return &tagsOpts{}, nil
+	} else {
+		return nil, ErrHelp
+	}
+}
+
+func tags(opts *tagsOpts) error {
 	db, err := getDB()
 	if err != nil {
 		return err
 	}
 
-	tags, err := db.Tags()
+	var tags []string
+	if len(opts.file) != 0 {
+		tags, err = db.TagsOnFile(opts.file)
+	} else {
+		tags, err = db.Tags()
+	}
 	if err != nil {
 		return err
 	}
@@ -44,7 +63,7 @@ func tagsSubcmd() int {
 	if len(os.Args) > 2 {
 		args = os.Args[2:]
 	}
-	err := parseTagsFlags(args)
+	opts, err := parseTagsFlags(args)
 	if err != nil {
 		if err == ErrHelp {
 			fmt.Fprintln(os.Stderr, tagsUsageMsg)
@@ -55,7 +74,7 @@ func tagsSubcmd() int {
 		}
 	}
 
-	if err := tags(); err != nil {
+	if err := tags(opts); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 2
 	}

@@ -12,12 +12,13 @@ type S struct {
 	DB *sql.DB
 
 	// Prepared statements.
-	addTag    *sql.Stmt
-	remTag    *sql.Stmt
-	forgetTag *sql.Stmt
-	renameTag *sql.Stmt
-	fileLst   *sql.Stmt
-	tagLst    *sql.Stmt
+	addTag      *sql.Stmt
+	remTag      *sql.Stmt
+	forgetTag   *sql.Stmt
+	renameTag   *sql.Stmt
+	taggedFiles *sql.Stmt
+	tagLst      *sql.Stmt
+	tagsOnFile  *sql.Stmt
 }
 
 func Open(path string) (s *S, err error) {
@@ -46,30 +47,20 @@ func Open(path string) (s *S, err error) {
 		return nil, err
 	}
 
-	s.addTag, err = s.DB.Prepare("INSERT OR IGNORE INTO map VALUES ($2, $1)")
-	if err != nil {
-		return
+	initStmt := func(target **sql.Stmt, stmt string) {
+		var err error
+		*target, err = s.DB.Prepare(stmt)
+		if err != nil {
+			panic(err)
+		}
 	}
-	s.remTag, err = s.DB.Prepare("DELETE FROM map WHERE path = $1 AND tag = $2")
-	if err != nil {
-		return nil, err
-	}
-	s.forgetTag, err = s.DB.Prepare("DELETE FROM map WHERE tag = $1")
-	if err != nil {
-		return nil, err
-	}
-	s.renameTag, err = s.DB.Prepare("UPDATE OR REPLACE map SET tag = $2 WHERE tag = $1")
-	if err != nil {
-		return nil, err
-	}
-	s.fileLst, err = s.DB.Prepare("SELECT path FROM map WHERE tag = $1")
-	if err != nil {
-		return nil, err
-	}
-	s.tagLst, err = s.DB.Prepare("SELECT tag FROM map GROUP BY tag")
-	if err != nil {
-		return nil, err
-	}
+	initStmt(&s.addTag, "INSERT OR IGNORE INTO map VALUES ($2, $1)")
+	initStmt(&s.remTag, "DELETE FROM map WHERE path = $1 AND tag = $2")
+	initStmt(&s.forgetTag, "DELETE FROM map WHERE tag = $1")
+	initStmt(&s.renameTag, "UPDATE OR REPLACE map SET tag = $2 WHERE tag = $1")
+	initStmt(&s.taggedFiles, "SELECT path FROM map WHERE tag = $1")
+	initStmt(&s.tagLst, "SELECT tag FROM map GROUP BY tag")
+	initStmt(&s.tagsOnFile, "SELECT tag FROM map WHERE path = $1 GROUP BY tag")
 
 	return
 }
@@ -102,15 +93,35 @@ func (s *S) Tags() (res []string, err error) {
 	return res, nil
 }
 
+func (s *S) TagsOnFile(path string) (res []string, err error) {
+	rows, err := s.tagsOnFile.Query(path)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, err
+		}
+		res = append(res, tag)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (s *S) RenameTag(tx *sql.Tx, oldname, newname string) error {
-	// FIXME: Cryptic error forces us to flip arguments in statement. Further
+	// FIXME: Cryptic error forces us to flip arguments in the statement. Further
 	// investigation is required.
 	_, err := tx.Stmt(s.renameTag).Exec(newname, oldname)
 	return err
 }
 
-func (s *S) FileList(tag string) (res []string, err error) {
-	rows, err := s.fileLst.Query(tag)
+func (s *S) TaggedFiles(tag string) (res []string, err error) {
+	rows, err := s.taggedFiles.Query(tag)
 	if err != nil {
 		return nil, err
 	}

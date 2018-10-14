@@ -13,15 +13,15 @@ var generalUsageMsg = `Usage: tagctl <subcommand> [options...]
 Control and query tags associated with files.
 
 Options:
-  -v, --version		Print version and exit
-  -h, --help		Print usage help and exit
+  -v, --version     Print version and exit
+  -h, --help        Print usage help and exit
 
 Subcommands:
-  query		List files by tag
-  add   	Add tag(s) to file(s)
-  rem   	Remove tag(s) from file(s)
-  retag		Rename/merge tag
-  tags		List known tags
+  query	    List files by tag
+  add       Add tag(s) to file(s)
+  rem       Remove tag(s) from file(s)
+  retag	    Rename/merge tag
+  tags	    List tags on file (or all tags)
   deltag    Delete tag.
 
 Use 'tagctl subcmd -h' to get more detailed description and usage hints for

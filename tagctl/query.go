@@ -41,7 +41,7 @@ func query(opts *queryOpts) error {
 		return err
 	}
 
-	files, err := db.FileList(opts.expr)
+	files, err := db.TaggedFiles(opts.expr)
 	if err != nil {
 		return err
 	}
