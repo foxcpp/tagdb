@@ -17,9 +17,10 @@ And... that's all.
 ```
 $ tagctl addtag Documents/agreement.odt.asc -t work
 $ tagctl remtag Pictures/avatar.xcf -t todo
-$ tagctl tags Documents/agreement.odt.asc
-work important
-$ tagctl query 'work & important'
+$ tagctl tags
+work
+todo
+$ tagctl query work
 /home/user/Documents/agreement.odt.asc
 ```
 
