@@ -1,7 +1,12 @@
 package storage
 
-import "database/sql"
-import _ "github.com/mattn/go-sqlite3"
+import (
+	"database/sql"
+	"strconv"
+	"strings"
+
+	_ "github.com/mattn/go-sqlite3"
+)
 
 type S struct {
 	DB *sql.DB
@@ -108,4 +113,71 @@ func (s *S) CheckTag(tag, path string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// FileListAllTags is similar to FileList but returns only entries with all
+// listed tags attached.
+func (s *S) FileListAllTags(tags ...string) (res []string, err error) {
+	// Prepare WHERE condition part.
+	// We need a `"tag", "tag"` string.
+	tagsQuoted := make([]string, len(tags))
+	for i, tag := range tags {
+		tagsQuoted[i] = `"` + tag + `"`
+	}
+	tagsBlock := strings.Join(tagsQuoted, ", ")
+	stmt := `
+		SELECT path FROM map
+		WHERE tag IN (` + tagsBlock + `)
+		GROUP BY path
+		HAVING COUNT(path) = ` + strconv.Itoa(len(tags))
+	rows, err := s.DB.Query(stmt)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		res = append(res, path)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// FileListAnyTag is similar to FileList but returns entries if it does have
+// at least one listed tag attached.
+func (s *S) FileListAnyTag(tags ...string) (res []string, err error) {
+	// Prepare WHERE condition part.
+	// We need a `"tag", "tag"` string.
+	tagsQuoted := make([]string, len(tags))
+	for i, tag := range tags {
+		tagsQuoted[i] = `"` + tag + `"`
+	}
+	tagsBlock := strings.Join(tagsQuoted, ", ")
+	stmt := `
+		SELECT path FROM map
+		WHERE tag IN (` + tagsBlock + `)
+		GROUP BY path`
+	rows, err := s.DB.Query(stmt)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		res = append(res, path)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
