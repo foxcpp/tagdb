@@ -68,6 +68,10 @@ func (s *S) Close() {
 	s.DB.Close()
 }
 
+func (s *S) Begin() (*sql.Tx, error) {
+	return s.DB.Begin()
+}
+
 func (s *S) FileList(tag string) (res []string, err error) {
 	rows, err := s.fileLst.Query(tag)
 	if err != nil {
@@ -88,18 +92,18 @@ func (s *S) FileList(tag string) (res []string, err error) {
 	return res, nil
 }
 
-func (s *S) AddTag(tag, path string) error {
-	_, err := s.addTag.Exec(tag, path)
+func (s *S) AddTag(tx *sql.Tx, tag, path string) error {
+	_, err := tx.Stmt(s.addTag).Exec(tag, path)
 	return err
 }
 
-func (s *S) RemoveTag(tag, path string) error {
-	_, err := s.remTag.Exec(tag, path)
+func (s *S) RemoveTag(tx *sql.Tx, tag, path string) error {
+	_, err := tx.Stmt(s.remTag).Exec(tag, path)
 	return err
 }
 
-func (s *S) ForgetTag(tag string) error {
-	_, err := s.forgetTag.Exec(tag)
+func (s *S) ForgetTag(tx *sql.Tx, tag string) error {
+	_, err := tx.Stmt(s.forgetTag).Exec(tag)
 	return err
 }
 
