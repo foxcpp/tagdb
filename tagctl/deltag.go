@@ -43,7 +43,7 @@ func deltag(opts *deltagOpts) error {
 		return err
 	}
 
-	if err = db.ForgetTag(tx, opts.tag); err != nil {
+	if err = db.DeleteTag(tx, opts.tag); err != nil {
 		tx.Rollback()
 		return err
 	}

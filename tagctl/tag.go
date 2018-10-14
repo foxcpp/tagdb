@@ -5,37 +5,36 @@ import (
 	"os"
 )
 
-var addUsageMsg = `Usage: tagctl add <files> -t <tag> [-t <tag>] ...
+var tagUsageMsg = `Usage: tagctl tag <files> -t <tag> [-t <tag>] ...
 
-Add all specified tags to files. Operation is atomic, either all or none
-tags added to all files.
+Add all specified tags to files.
 
 Options:
   -h, --help		Print this message.
-  -t, --tag <tag>	Tag to add; can be used multiple times
+  -t, --tag <tag>	Tag to tag; can be used multiple times
 
 Examples:
-  tagctl add agreement.odt report.odt -t work
+  tagctl tag agreement.odt report.odt -t work
 	Add 'work' tag to agreement.odt and report.odt files in current
 	directory.
 
-  tagctl add report.odt -t todo
+  tagctl tag report.odt -t todo
     Add 'todo' tag to report.odt file in current directory.
 `
 
-type addOpts struct {
+type tagOpts struct {
 	files []string
 	tags  []string
 }
 
-func parseAddFlags(args []string) (*addOpts, error) {
-	res := new(addOpts)
+func parsetagFlags(args []string) (*tagOpts, error) {
+	res := new(tagOpts)
 	var err error
 	res.files, res.tags, err = parseFilesTags(args)
 	return res, err
 }
 
-func add(opts *addOpts) error {
+func tag(opts *tagOpts) error {
 	db, err := getDB()
 	if err != nil {
 		return err
@@ -46,8 +45,8 @@ func add(opts *addOpts) error {
 		return err
 	}
 	for _, file := range opts.files {
-		for _, tag := range opts.tags {
-			err := db.AddTag(tx, tag, file)
+		for _, t := range opts.tags {
+			err := db.Tag(tx, t, file)
 			if err != nil {
 				tx.Rollback()
 				return err
@@ -57,15 +56,15 @@ func add(opts *addOpts) error {
 	return tx.Commit()
 }
 
-func addSubcmd() int {
+func tagSubcmd() int {
 	if len(os.Args) < 3 {
-		fmt.Fprintln(os.Stderr, addUsageMsg)
+		fmt.Fprintln(os.Stderr, tagUsageMsg)
 		return 1
 	}
-	opts, err := parseAddFlags(os.Args[2:])
+	opts, err := parsetagFlags(os.Args[2:])
 	if err != nil {
 		if err == ErrHelp {
-			fmt.Fprintln(os.Stderr, addUsageMsg)
+			fmt.Fprintln(os.Stderr, tagUsageMsg)
 			return 0
 		} else {
 			fmt.Fprintln(os.Stderr, "error:", err)
@@ -73,7 +72,7 @@ func addSubcmd() int {
 		}
 	}
 
-	if err := add(opts); err != nil {
+	if err := tag(opts); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 2
 	}

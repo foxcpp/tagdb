@@ -12,9 +12,9 @@ type S struct {
 	DB *sql.DB
 
 	// Prepared statements.
-	addTag      *sql.Stmt
-	remTag      *sql.Stmt
-	forgetTag   *sql.Stmt
+	tag         *sql.Stmt
+	untag       *sql.Stmt
+	delTag      *sql.Stmt
 	renameTag   *sql.Stmt
 	taggedFiles *sql.Stmt
 	tagLst      *sql.Stmt
@@ -54,9 +54,9 @@ func Open(path string) (s *S, err error) {
 			panic(err)
 		}
 	}
-	initStmt(&s.addTag, "INSERT OR IGNORE INTO map VALUES ($2, $1)")
-	initStmt(&s.remTag, "DELETE FROM map WHERE path = $1 AND tag = $2")
-	initStmt(&s.forgetTag, "DELETE FROM map WHERE tag = $1")
+	initStmt(&s.tag, "INSERT OR IGNORE INTO map VALUES ($2, $1)")
+	initStmt(&s.untag, "DELETE FROM map WHERE path = $1 AND tag = $2")
+	initStmt(&s.delTag, "DELETE FROM map WHERE tag = $1")
 	initStmt(&s.renameTag, "UPDATE OR REPLACE map SET tag = $2 WHERE tag = $1")
 	initStmt(&s.taggedFiles, "SELECT path FROM map WHERE tag = $1")
 	initStmt(&s.tagLst, "SELECT tag FROM map GROUP BY tag")
@@ -94,6 +94,9 @@ func (s *S) Tags() (res []string, err error) {
 }
 
 func (s *S) TagsOnFile(path string) (res []string, err error) {
+	if !IsValidPath(path) {
+		return nil, ErrInvalidPath
+	}
 	rows, err := s.tagsOnFile.Query(path)
 	if err != nil {
 		return nil, err
@@ -114,6 +117,12 @@ func (s *S) TagsOnFile(path string) (res []string, err error) {
 }
 
 func (s *S) RenameTag(tx *sql.Tx, oldname, newname string) error {
+	if !IsValidTag(oldname) {
+		return ErrInvalidTag
+	}
+	if !IsValidTag(newname) {
+		return ErrInvalidTag
+	}
 	// FIXME: Cryptic error forces us to flip arguments in the statement. Further
 	// investigation is required.
 	_, err := tx.Stmt(s.renameTag).Exec(newname, oldname)
@@ -121,6 +130,9 @@ func (s *S) RenameTag(tx *sql.Tx, oldname, newname string) error {
 }
 
 func (s *S) TaggedFiles(tag string) (res []string, err error) {
+	if !IsValidTag(tag) {
+		return nil, ErrInvalidTag
+	}
 	rows, err := s.taggedFiles.Query(tag)
 	if err != nil {
 		return nil, err
@@ -140,22 +152,43 @@ func (s *S) TaggedFiles(tag string) (res []string, err error) {
 	return res, nil
 }
 
-func (s *S) AddTag(tx *sql.Tx, tag, path string) error {
-	_, err := tx.Stmt(s.addTag).Exec(tag, path)
+func (s *S) Tag(tx *sql.Tx, tag, path string) error {
+	if !IsValidTag(tag) {
+		return ErrInvalidTag
+	}
+	if !IsValidPath(path) {
+		return ErrInvalidPath
+	}
+	_, err := tx.Stmt(s.tag).Exec(tag, path)
 	return err
 }
 
-func (s *S) RemoveTag(tx *sql.Tx, tag, path string) error {
-	_, err := tx.Stmt(s.remTag).Exec(tag, path)
+func (s *S) Untag(tx *sql.Tx, tag, path string) error {
+	if !IsValidTag(tag) {
+		return ErrInvalidTag
+	}
+	if !IsValidPath(path) {
+		return ErrInvalidPath
+	}
+	_, err := tx.Stmt(s.untag).Exec(tag, path)
 	return err
 }
 
-func (s *S) ForgetTag(tx *sql.Tx, tag string) error {
-	_, err := tx.Stmt(s.forgetTag).Exec(tag)
+func (s *S) DeleteTag(tx *sql.Tx, tag string) error {
+	if !IsValidTag(tag) {
+		return ErrInvalidTag
+	}
+	_, err := tx.Stmt(s.delTag).Exec(tag)
 	return err
 }
 
 func (s *S) CheckTag(tag, path string) (bool, error) {
+	if !IsValidTag(tag) {
+		return false, ErrInvalidTag
+	}
+	if !IsValidPath(path) {
+		return false, ErrInvalidPath
+	}
 	row := s.DB.QueryRow("SELECT path FROM map WHERE path = $1 AND tag = $2")
 	var dummy string
 	if err := row.Scan(&dummy); err != nil {

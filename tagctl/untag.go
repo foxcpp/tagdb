@@ -5,33 +5,33 @@ import (
 	"os"
 )
 
-var remUsageMsg = `Usage: tagctl rem <files> -t <tag> [-t <tag>] ...
+var untagUsageMsg = `Usage: tagctl untag <files> -t <tag> [-t <tag>] ...
 
-Remove all specified tags from files. Operation is atomic, either all or none
-tags removed from all files. Non-existing files and tags are silently ignored.
+Remove all specified tags from files. Non-existing files and tags are silently
+ignored.
 
 Options:
   -h, --help		Print this message.
   -t, --tag <tag>	Tag to add; can be used multiple times
 
 Examples:
-  tagctl rem report.odt -t todo
+  tagctl untag report.odt -t todo
     Remove 'todo' tag from report.odt file in current directory.
 `
 
-type remOpts struct {
+type untagOpts struct {
 	files []string
 	tags  []string
 }
 
-func parseRemFlags(args []string) (*remOpts, error) {
-	res := new(remOpts)
+func parseuntagFlags(args []string) (*untagOpts, error) {
+	res := new(untagOpts)
 	var err error
 	res.files, res.tags, err = parseFilesTags(args)
 	return res, err
 }
 
-func rem(opts *remOpts) error {
+func untag(opts *untagOpts) error {
 	db, err := getDB()
 	if err != nil {
 		return err
@@ -42,8 +42,8 @@ func rem(opts *remOpts) error {
 		return err
 	}
 	for _, file := range opts.files {
-		for _, tag := range opts.tags {
-			err := db.RemoveTag(tx, tag, file)
+		for _, t := range opts.tags {
+			err := db.Untag(tx, t, file)
 			if err != nil {
 				tx.Rollback()
 				return err
@@ -53,15 +53,15 @@ func rem(opts *remOpts) error {
 	return tx.Commit()
 }
 
-func remSubcmd() int {
+func untagSubcmd() int {
 	if len(os.Args) < 3 {
-		fmt.Fprintln(os.Stderr, remUsageMsg)
+		fmt.Fprintln(os.Stderr, untagUsageMsg)
 		return 1
 	}
-	opts, err := parseRemFlags(os.Args[2:])
+	opts, err := parseuntagFlags(os.Args[2:])
 	if err != nil {
 		if err == ErrHelp {
-			fmt.Fprintln(os.Stderr, remUsageMsg)
+			fmt.Fprintln(os.Stderr, untagUsageMsg)
 			return 0
 		} else {
 			fmt.Fprintln(os.Stderr, "error:", err)
@@ -69,7 +69,7 @@ func remSubcmd() int {
 		}
 	}
 
-	if err := rem(opts); err != nil {
+	if err := untag(opts); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 2
 	}

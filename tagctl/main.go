@@ -18,8 +18,8 @@ Options:
 
 Subcommands:
   query	    List files by tag
-  add       Add tag(s) to file(s)
-  rem       Remove tag(s) from file(s)
+  tag       Add tag(s) to file(s)
+  untag     Remove tag(s) from file(s)
   retag	    Rename/merge tag
   tags	    List tags on file (or all tags)
   deltag    Delete tag.
@@ -95,10 +95,10 @@ func main() {
 	subCmd := os.Args[1]
 	if subCmd == "query" {
 		exitCode = querySubcmd()
-	} else if subCmd == "add" {
-		exitCode = addSubcmd()
-	} else if subCmd == "rem" {
-		exitCode = remSubcmd()
+	} else if subCmd == "tag" {
+		exitCode = tagSubcmd()
+	} else if subCmd == "untag" {
+		exitCode = untagSubcmd()
 	} else if subCmd == "retag" {
 		exitCode = retagSubcmd()
 	} else if subCmd == "tags" {
